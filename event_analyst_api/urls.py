@@ -5,6 +5,7 @@ from .views import (
     user_logout,
     change_password,
     VerifyEmail,
+    get_user_info,
     ResendActivationEmail,
 )
 
@@ -14,6 +15,7 @@ urlpatterns = [
     path("logout/", user_logout, name="logout"),
     path("change_password/", change_password, name="change_password"),
     path("email_verify/", VerifyEmail.as_view(), name="email_verify"),
+    path("get_user_info/<str:email>/", get_user_info, name="get_user_info"),
     path(
         "resend_email_verify/",
         ResendActivationEmail.as_view(),

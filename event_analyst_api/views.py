@@ -3,11 +3,27 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import UserSerializer, EmailVerificationSerializer
+from .models import CustomUser
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from .utils import Util
 from django.conf import settings
 import jwt
+
+
+@api_view(["GET"])
+def get_user_info(request, email):
+    try:
+        user = CustomUser.objects.get(email=email)
+        return Response(
+            {
+                "username": user.username,
+                "email": user.email,
+                "is_verified": user.is_verified,
+            }
+        )
+    except CustomUser.DoesNotExist:
+        return Response(None)
 
 
 @api_view(["POST"])
@@ -44,7 +60,6 @@ def register_user(request):
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.core.exceptions import ObjectDoesNotExist
-from .models import CustomUser
 
 
 @api_view(["POST"])
