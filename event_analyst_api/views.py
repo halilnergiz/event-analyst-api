@@ -58,7 +58,6 @@ def register_user(request):
 
 
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
 from django.core.exceptions import ObjectDoesNotExist
 
 
@@ -71,12 +70,20 @@ def user_login(request):
         user = None
         if "@" in username:
             try:
-                user = CustomUser.objects.get(email=username)
+                user = CustomUser.objects.get(email=username, password=password)
             except ObjectDoesNotExist:
-                pass
-
-        if not user:
-            user = authenticate(username=username, password=password)
+                return Response(
+                    {"error": "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        else:
+            try:
+                user = CustomUser.objects.get(username=username, password=password)
+            except ObjectDoesNotExist:
+                return Response(
+                    {"error": "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
 
         if user:
             token, _ = Token.objects.get_or_create(user=user)
