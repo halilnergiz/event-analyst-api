@@ -1,14 +1,24 @@
+from django.contrib.sites.shortcuts import get_current_site
+from django.contrib.auth import update_session_auth_hash
+from django.urls import reverse
+from django.conf import settings
+from django.contrib.auth import authenticate
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import permission_classes
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+
+import jwt
+
 from .serializers import UserSerializer, EmailVerificationSerializer
 from .models import CustomUser
-from django.contrib.sites.shortcuts import get_current_site
-from django.urls import reverse
 from .utils import Util
-from django.conf import settings
-import jwt
+from .serializers import ChangePasswordSerializer
 
 
 @api_view(["GET"])
@@ -23,7 +33,7 @@ def get_user_info(request, email):
             }
         )
     except CustomUser.DoesNotExist:
-        return Response(None)
+        return Response({"error: User not found!"}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(["POST"])
@@ -57,33 +67,13 @@ def register_user(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-from rest_framework.authtoken.models import Token
-from django.core.exceptions import ObjectDoesNotExist
-
-
 @api_view(["POST"])
 def user_login(request):
     if request.method == "POST":
         username = request.data.get("username")
         password = request.data.get("password")
 
-        user = None
-        if "@" in username:
-            try:
-                user = CustomUser.objects.get(email=username, password=password)
-            except ObjectDoesNotExist:
-                return Response(
-                    {"error": "Invalid credentials"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
-        else:
-            try:
-                user = CustomUser.objects.get(username=username, password=password)
-            except ObjectDoesNotExist:
-                return Response(
-                    {"error": "Invalid credentials"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+        user = authenticate(username=username, password=password)
 
         if user:
             token, _ = Token.objects.get_or_create(user=user)
@@ -92,10 +82,6 @@ def user_login(request):
         return Response(
             {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
         )
-
-
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
 
 
 @api_view(["POST"])
@@ -113,10 +99,6 @@ def user_logout(request):
             )
 
 
-from django.contrib.auth import update_session_auth_hash
-from .serializers import ChangePasswordSerializer
-
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def change_password(request):
@@ -127,9 +109,7 @@ def change_password(request):
             if user.check_password(serializer.data.get("old_password")):
                 user.set_password(serializer.data.get("new_password"))
                 user.save()
-                update_session_auth_hash(
-                    request, user
-                )  # To update session after password change
+                update_session_auth_hash(request, user)
                 return Response(
                     {"message": "Password changed successfully."},
                     status=status.HTTP_200_OK,
@@ -138,9 +118,6 @@ def change_password(request):
                 {"error": "Incorrect old password."}, status=status.HTTP_400_BAD_REQUEST
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-from rest_framework import generics
 
 
 # TODO
@@ -184,7 +161,6 @@ class ResendActivationEmail(generics.GenericAPIView):
             )
 
         try:
-            # token = PasswordResetToken.generate(user)
             token = RefreshToken.for_user(user).access_token
             current_site = get_current_site(request).domain
             relativeLinks = reverse("email_verify")
