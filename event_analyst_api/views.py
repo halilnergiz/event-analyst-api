@@ -15,10 +15,13 @@ from rest_framework.permissions import IsAuthenticated
 
 import jwt
 
-from .serializers import UserSerializer, EmailVerificationSerializer
+from .serializers import (
+    UserSerializer,
+    EmailVerificationSerializer,
+    ChangePasswordSerializer,
+)
 from .models import CustomUser
 from .utils import Util
-from .serializers import ChangePasswordSerializer
 
 
 @api_view(["GET"])
@@ -103,19 +106,17 @@ def user_logout(request):
 @permission_classes([IsAuthenticated])
 def change_password(request):
     if request.method == "POST":
-        serializer = ChangePasswordSerializer(data=request.data)
+        serializer = ChangePasswordSerializer(
+            data=request.data, context={"request": request}
+        )
         if serializer.is_valid():
             user = request.user
-            if user.check_password(serializer.data.get("old_password")):
-                user.set_password(serializer.data.get("new_password"))
-                user.save()
-                update_session_auth_hash(request, user)
-                return Response(
-                    {"message": "Password changed successfully."},
-                    status=status.HTTP_200_OK,
-                )
+            user.set_password(serializer.validated_data.get("new_password"))
+            user.save()
+            update_session_auth_hash(request, user)
             return Response(
-                {"error": "Incorrect old password."}, status=status.HTTP_400_BAD_REQUEST
+                {"message": "Password changed successfully"},
+                status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
