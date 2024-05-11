@@ -6,12 +6,13 @@ from django.contrib.auth import authenticate
 
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import permission_classes
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
 
 import jwt
 
@@ -19,9 +20,13 @@ from .serializers import (
     UserSerializer,
     EmailVerificationSerializer,
     ChangePasswordSerializer,
+    EventSerializer,
 )
-from .models import CustomUser
+from .models import CustomUser, Event
 from .utils import Util
+
+
+# USER VIEWS
 
 
 @api_view(["GET"])
@@ -189,3 +194,77 @@ class ResendActivationEmail(generics.GenericAPIView):
                 {"detail": "Activation mail couldn't send"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+# EVENT VIEWS
+
+
+@api_view(["POST"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def create_event(request):
+    if request.method == "POST":
+        serializer = EventSerializer(data=request.data, context={"request": request})
+        print(serializer)
+        if serializer.is_valid():
+            event = serializer.save()
+            response_serializer = EventSerializer(event)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+def get_all_events(request):
+    user_events = Event.objects.filter(event_owner=request.user)
+    serializer = EventSerializer(user_events, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["DELETE"])
+def delete_event(request, event_id):
+    if request.method == "DELETE":
+        try:
+            event = Event.objects.get(eventId=event_id)
+        except Event.DoesNotExist:
+            return Response(
+                {"error": "Event not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if event.event_owner != request.user:
+            return Response(
+                {"error": "You don't have permission to delete this event"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        event.delete()
+        return Response(
+            {"message": "Event deleted successfully"}, status=status.HTTP_204_NO_CONTENT
+        )
+
+
+@api_view(["PUT"])  # event_title necessary
+def update_event(request, event_id):
+    try:
+        event = Event.objects.get(eventId=event_id, event_owner=request.user)
+    except Event.DoesNotExist:
+        return Response({"error": "Event not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = EventSerializer(event, data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["PATCH"])
+def partial_update_event(request, event_id):
+    try:
+        event = Event.objects.get(eventId=event_id, event_owner=request.user)
+    except Event.DoesNotExist:
+        return Response({"error": "Event not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = EventSerializer(event, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -4,7 +4,7 @@ from django.core.validators import RegexValidator, MinLengthValidator
 
 from rest_framework import serializers
 
-from .models import CustomUser
+from .models import CustomUser, Event
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -62,3 +62,26 @@ class EmailVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ["token"]
+
+
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = (
+            "eventId",
+            "title",
+            "description",
+            "start_date",
+            "end_date",
+            "longitude",
+            "latitude",
+            "address",
+            "createdAt",
+            "updatedAt",
+            "event_owner",
+        )
+        read_only_fields = ("event_owner",)
+
+    def create(self, validated_data):
+        validated_data["event_owner"] = self.context["request"].user
+        return super().create(validated_data)

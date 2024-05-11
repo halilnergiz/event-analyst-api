@@ -3,6 +3,9 @@ from django.core.validators import (
     RegexValidator,
     MinLengthValidator,
 )
+
+import uuid
+
 from django.db import models
 
 
@@ -33,3 +36,20 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return self.username
+
+
+class Event(models.Model):
+    eventId = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    start_date = models.DateTimeField(blank=True)
+    end_date = models.DateTimeField(blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+    event_owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.title  # TODO
