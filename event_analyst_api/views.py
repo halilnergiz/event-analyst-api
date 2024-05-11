@@ -180,12 +180,12 @@ class ResendActivationEmail(generics.GenericAPIView):
 
             Util.send_email(data)
             return Response(
-                {"detail": "Aktivasyon maili tekrar gönderildi."},
+                {"detail": "Resend activation mail, please check your mail"},
                 status=status.HTTP_200_OK,
             )
         except Exception as e:
             print(e)
             return Response(
-                {"detail": "Aktivasyon maili gönderilemedi."},
+                {"detail": "Activation mail couldn't send"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
