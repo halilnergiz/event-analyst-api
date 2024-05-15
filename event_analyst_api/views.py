@@ -21,6 +21,7 @@ from .serializers import (
     EmailVerificationSerializer,
     ChangePasswordSerializer,
     EventSerializer,
+    PhotoSerializer,
 )
 from .models import CustomUser, Event
 from .utils import Util
@@ -268,3 +269,29 @@ def partial_update_event(request, event_id):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# PHOTO VIEWS
+
+
+class PhotoCreateAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = PhotoSerializer(data=request.data)
+        if serializer.is_valid():
+            event_id = serializer.validated_data["event"].eventId
+            event = Event.objects.filter(
+                eventId=event_id, event_owner=request.user
+            ).first()
+            if event is not None:
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(
+                    {
+                        "detail": "You do not have permission to add a photo to this event."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,4 +1,6 @@
 from django.urls import path
+from django.conf.urls.static import static
+from django.conf import settings
 
 from .views import (
     register_user,
@@ -13,6 +15,7 @@ from .views import (
     get_all_events,
     update_event,
     partial_update_event,
+    PhotoCreateAPIView,
 )
 
 urlpatterns = [
@@ -36,4 +39,9 @@ urlpatterns = [
         partial_update_event,
         name="partial_update_event",
     ),
-]
+    path(
+        "upload_photo/",
+        PhotoCreateAPIView.as_view(),
+        name="upload_photo",
+    ),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

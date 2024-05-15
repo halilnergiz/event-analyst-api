@@ -1,3 +1,4 @@
+from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import (
     RegexValidator,
@@ -6,7 +7,6 @@ from django.core.validators import (
 
 import uuid
 
-from django.db import models
 
 
 class CustomUser(AbstractUser):
@@ -39,7 +39,7 @@ class CustomUser(AbstractUser):
 
 
 class Event(models.Model):
-    eventId = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    eventId = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     start_date = models.DateTimeField(blank=True)
@@ -53,3 +53,14 @@ class Event(models.Model):
 
     def __str__(self):
         return self.title  # TODO
+
+
+class Photo(models.Model):
+    photoId = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    path = models.ImageField(upload_to="images/")
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Photo for {self.event}/{self.event_id} -> Photo ID: {self.photoId}"

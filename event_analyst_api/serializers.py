@@ -4,7 +4,7 @@ from django.core.validators import RegexValidator, MinLengthValidator
 
 from rest_framework import serializers
 
-from .models import CustomUser, Event
+from .models import CustomUser, Event, Photo
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -85,3 +85,10 @@ class EventSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data["event_owner"] = self.context["request"].user
         return super().create(validated_data)
+
+
+class PhotoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Photo
+        fields = ["photoId", "event", "path", "createdAt", "updatedAt"]
+        read_only_fields = ["photoId", "createdAt", "updatedAt"]
