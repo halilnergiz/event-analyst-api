@@ -13,6 +13,7 @@ from rest_framework.decorators import permission_classes
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.parsers import MultiPartParser, FormParser
 
 import jwt
 
@@ -23,7 +24,7 @@ from .serializers import (
     EventSerializer,
     PhotoSerializer,
 )
-from .models import CustomUser, Event
+from .models import CustomUser, Event, Photo
 from .utils import Util
 
 
@@ -276,22 +277,33 @@ def partial_update_event(request, event_id):
 
 class PhotoCreateAPIView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
-    def post(self, request, *args, **kwargs):
-        serializer = PhotoSerializer(data=request.data)
-        if serializer.is_valid():
-            event_id = serializer.validated_data["event"].eventId
-            event = Event.objects.filter(
-                eventId=event_id, event_owner=request.user
-            ).first()
-            if event is not None:
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            else:
-                return Response(
-                    {
-                        "detail": "You do not have permission to add a photo to this event."
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request):
+        photos_data = request.FILES.getlist("path")
+        event_id = request.data.get("event")
+        event = Event.objects.filter(eventId=event_id, event_owner=request.user).first()
+
+        if event is None:
+            return Response(
+                {"detail": "You do not have this event"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializers = [
+            PhotoSerializer(data={"event": event_id, "path": photo})
+            for photo in photos_data
+        ]
+
+        for serializer in serializers:
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        photo_instances = [
+            Photo(event=event, path=serializer.validated_data["path"])
+            for serializer in serializers
+        ]
+        Photo.objects.bulk_create(photo_instances)
+
+        response_serializer = PhotoSerializer(photo_instances, many=True)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)

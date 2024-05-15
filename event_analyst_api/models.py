@@ -8,7 +8,6 @@ from django.core.validators import (
 import uuid
 
 
-
 class CustomUser(AbstractUser):
     username = models.CharField(
         max_length=30,

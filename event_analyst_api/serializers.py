@@ -1,8 +1,11 @@
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.hashers import check_password
 from django.core.validators import RegexValidator, MinLengthValidator
+from django.core.exceptions import ValidationError
 
 from rest_framework import serializers
+
+import os
 
 from .models import CustomUser, Event, Photo
 
@@ -92,3 +95,12 @@ class PhotoSerializer(serializers.ModelSerializer):
         model = Photo
         fields = ["photoId", "event", "path", "createdAt", "updatedAt"]
         read_only_fields = ["photoId", "createdAt", "updatedAt"]
+
+    def validate_path(self, value):
+        valid_extensions = [".png", ".jpg", ".jpeg", ".svg"]
+        ext = os.path.splitext(value.name)[1].lower()
+        if ext not in valid_extensions:
+            raise ValidationError(
+                f"Unsupported file extension: {ext}. Supported extensions are: {', '.join(valid_extensions)}"
+            )
+        return value
