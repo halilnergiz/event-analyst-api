@@ -1,6 +1,4 @@
 from django.urls import path
-from django.conf.urls.static import static
-from django.conf import settings
 
 from .views import (
     register_user,
@@ -15,6 +13,10 @@ from .views import (
     get_all_events,
     update_event,
     partial_update_event,
+    EventPhotosListAPIView,
+    PhotoCreateAPIView,
+    PhotoDetailAPIView,
+    PhotoDeleteAPIView,
     PhotoCreateAPIView,
 )
 
@@ -39,9 +41,16 @@ urlpatterns = [
         partial_update_event,
         name="partial_update_event",
     ),
+    path("photos/upload/", PhotoCreateAPIView.as_view(), name="photo_upload"),
+    path("photos/<uuid:photoId>/", PhotoDetailAPIView.as_view(), name="photo_detail"),
     path(
-        "upload_photo/",
-        PhotoCreateAPIView.as_view(),
-        name="upload_photo",
+        "events/<uuid:eventId>/photos/",
+        EventPhotosListAPIView.as_view(),
+        name="event_photos_list",
     ),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path(
+        "photos/<uuid:photoId>/delete/",
+        PhotoDeleteAPIView.as_view(),
+        name="photo_delete",
+    ),
+]

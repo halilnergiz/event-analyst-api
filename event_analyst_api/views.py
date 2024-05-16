@@ -279,14 +279,14 @@ class PhotoCreateAPIView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         photos_data = request.FILES.getlist("path")
         event_id = request.data.get("event")
         event = Event.objects.filter(eventId=event_id, event_owner=request.user).first()
 
         if event is None:
             return Response(
-                {"detail": "You do not have this event"},
+                {"detail": "Event does not exist"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -307,3 +307,61 @@ class PhotoCreateAPIView(generics.GenericAPIView):
 
         response_serializer = PhotoSerializer(photo_instances, many=True)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class PhotoDetailAPIView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Photo.objects.all()
+    serializer_class = PhotoSerializer
+    lookup_field = "photoId"
+
+
+class EventPhotosListAPIView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PhotoSerializer
+
+    def get_queryset(self):
+        event_id = self.kwargs["eventId"]
+        event = Event.objects.filter(
+            eventId=event_id, event_owner=self.request.user
+        ).first()
+        if event:
+            return Photo.objects.filter(event=event)
+        else:
+            return Photo.objects.none()
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        if (
+            not queryset.exists()
+            and not Event.objects.filter(
+                eventId=self.kwargs["eventId"], event_owner=self.request.user
+            ).exists()
+        ):
+            return Response(
+                {"detail": "Event does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class PhotoDeleteAPIView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Photo.objects.all()
+    serializer_class = PhotoSerializer
+    lookup_field = "photoId"
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.event.event_owner == request.user:
+            self.perform_destroy(instance)
+            return Response(
+                {"detail": "Photo has been deleted successfully"},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"detail": "You do not have permission to delete this photo."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
