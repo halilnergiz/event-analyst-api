@@ -1,5 +1,10 @@
-import os
+from rest_framework.settings import api_settings
+
 from dotenv import load_dotenv
+from datetime import timedelta
+
+import os
+
 load_dotenv()
 
 """
@@ -40,7 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework.authtoken',
+    'knox',
     'django_rest_passwordreset',
     'event_analyst_api.apps.EventAnalystApiConfig',
 ]
@@ -107,7 +112,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Istanbul'
 
 USE_I18N = True
 
@@ -126,7 +131,7 @@ AUTH_USER_MODEL = 'event_analyst_api.CustomUser'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'knox.auth.TokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
 }
@@ -142,3 +147,14 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 # Media
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+REST_KNOX = {
+    'SECURE_HASH_ALGORITHM': os.getenv('SECURE_HASH_ALGORITHM'),
+    'AUTH_TOKEN_CHARACTER_LENGTH': int(os.getenv("AUTH_TOKEN_CHARACTER_LENGTH")),
+    'TOKEN_TTL': timedelta(hours=int(os.getenv('TOKEN_TTL_VALUE'))),
+    'USER_SERIALIZER': 'knox.serializers.UserSerializer',
+    'TOKEN_LIMIT_PER_USER': int(os.getenv("TOKEN_LIMIT_PER_USER")),
+    'AUTO_REFRESH': False,
+    'EXPIRY_DATETIME_FORMAT': api_settings.DATETIME_FORMAT,
+}

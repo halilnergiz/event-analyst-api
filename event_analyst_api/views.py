@@ -2,18 +2,24 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth import update_session_auth_hash
 from django.urls import reverse
 from django.conf import settings
-from django.contrib.auth import authenticate
+from django.contrib.auth import login
 
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.authtoken.models import Token
-from rest_framework.decorators import permission_classes
-from rest_framework import generics
+from rest_framework import generics, permissions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.authtoken.serializers import AuthTokenSerializer
+
+from knox.auth import TokenAuthentication
+from knox.views import LoginView as KnoxLoginView
 
 import jwt
 
@@ -23,6 +29,7 @@ from .serializers import (
     ChangePasswordSerializer,
     EventSerializer,
     PhotoSerializer,
+    AuthSerializer,
 )
 from .models import CustomUser, Event, Photo
 from .utils import Util
@@ -31,40 +38,24 @@ from .utils import Util
 # USER VIEWS
 
 
-@api_view(["GET"])
-def get_user_info(request, email):
-    try:
-        user = CustomUser.objects.get(email=email)
-        return Response(
-            {
-                "username": user.username,
-                "email": user.email,
-                "is_verified": user.is_verified,
-            }
-        )
-    except CustomUser.DoesNotExist:
-        return Response({"error: User not found!"}, status=status.HTTP_404_NOT_FOUND)
+class CreateUserView(generics.CreateAPIView):
+    serializer_class = UserSerializer
 
-
-@api_view(["POST"])
-def register_user(request):
-    if request.method == "POST":
-        serializer = UserSerializer(data=request.data)
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            user_data = serializer.data
-            user = CustomUser.objects.get(email=user_data["email"])
+            user = serializer.save()
 
             token = RefreshToken.for_user(user).access_token
 
             current_site = get_current_site(request).domain
-            relativeLinks = reverse("email_verify")
-            absurl = "http://" + current_site + relativeLinks + "?token=" + str(token)
+            relative_link = reverse("email_verify")
+            abs_url = "http://" + current_site + relative_link + "?token=" + str(token)
             email_body = (
                 "Hi "
                 + user.username
                 + " Use link below to verify your email\n"
-                + absurl
+                + abs_url
             )
             data = {
                 "email_body": email_body,
@@ -73,40 +64,38 @@ def register_user(request):
             }
 
             Util.send_email(data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            response_data = (
+                {
+                    "message": "User registered successfully. Verification email sent.",
+                    "user": {
+                        "username": user.username,
+                        "email": user.email,
+                    },
+                },
+            )
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(["POST"])
-def user_login(request):
-    if request.method == "POST":
-        username = request.data.get("username")
-        password = request.data.get("password")
+class LoginUserView(KnoxLoginView):
+    serializer_class = AuthSerializer
+    permission_classes = (permissions.AllowAny,)
 
-        user = authenticate(username=username, password=password)
-
-        if user:
-            token, _ = Token.objects.get_or_create(user=user)
-            return Response({"token": token.key}, status=status.HTTP_200_OK)
-
-        return Response(
-            {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
-        )
+    def post(self, request, format=None):
+        serializer = AuthTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        login(request, user)
+        return super(LoginUserView, self).post(request, format=None)
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def user_logout(request):
-    if request.method == "POST":
-        try:
-            request.user.auth_token.delete()
-            return Response(
-                {"message": "Successfully logged out."}, status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+class ManageUserView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_object(self):
+        return self.request.user
 
 
 @api_view(["POST"])
@@ -128,10 +117,7 @@ def change_password(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# TODO
-# @api_view(["GET"])
-# def verify_email()
-class VerifyEmail(generics.GenericAPIView):
+class VerifyEmailView(generics.GenericAPIView):
     serializer_class = EmailVerificationSerializer
 
     def get(self, request):
@@ -157,7 +143,7 @@ class VerifyEmail(generics.GenericAPIView):
             )
 
 
-class ResendActivationEmail(generics.GenericAPIView):
+class ResendActivationEmailView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -275,7 +261,7 @@ def partial_update_event(request, event_id):
 # PHOTO VIEWS
 
 
-class PhotoCreateAPIView(generics.GenericAPIView):
+class PhotoCreateView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -309,14 +295,14 @@ class PhotoCreateAPIView(generics.GenericAPIView):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
-class PhotoDetailAPIView(generics.RetrieveAPIView):
+class PhotoDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Photo.objects.all()
     serializer_class = PhotoSerializer
     lookup_field = "photoId"
 
 
-class EventPhotosListAPIView(generics.ListAPIView):
+class EventPhotosListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PhotoSerializer
 
@@ -346,7 +332,7 @@ class EventPhotosListAPIView(generics.ListAPIView):
         return Response(serializer.data)
 
 
-class PhotoDeleteAPIView(generics.DestroyAPIView):
+class PhotoDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Photo.objects.all()
     serializer_class = PhotoSerializer
