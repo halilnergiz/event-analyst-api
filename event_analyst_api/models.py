@@ -65,7 +65,6 @@ class Photo(models.Model):
         return f"Photo for {self.event}/{self.event_id} -> Photo ID: {self.photoId}"
 
 
-# Modelde JSONField kullanımı
 class EventStatistic(models.Model):
     eventStatisticId = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
