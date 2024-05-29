@@ -17,9 +17,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.authtoken.serializers import AuthTokenSerializer
+from rest_framework.exceptions import PermissionDenied
 
 from knox.auth import TokenAuthentication
 from knox.views import LoginView as KnoxLoginView
+from knox.models import AuthToken
 
 import jwt
 
@@ -86,8 +88,28 @@ class LoginUserView(KnoxLoginView):
         serializer = AuthTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+
+        if not user.is_verified:
+            return Response(
+                {"detail": "User account is not verified"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         login(request, user)
-        return super(LoginUserView, self).post(request, format=None)
+        response = super(LoginUserView, self).post(request, format=None)
+        response_data = response.data
+        response_data["user"]["email"] = user.email
+        response_data["user"]["is_verified"] = user.is_verified
+
+        return Response(response_data)
+
+
+def get_token_expiry(user):
+    try:
+        token = AuthToken.objects.filter(user=user).latest("expiry")
+        return {"expiry": token.expiry}
+    except AuthToken.DoesNotExist:
+        return None
 
 
 class ManageUserView(generics.RetrieveUpdateAPIView):
@@ -96,6 +118,14 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def get(self, request, *args, **kwargs):
+        user = self.get_object()
+        serializer = self.get_serializer(user)
+        token_expiry = get_token_expiry(user)
+        data = serializer.data
+        data["token_expiry"] = token_expiry
+        return Response(data)
 
 
 @api_view(["POST"])
@@ -201,6 +231,19 @@ def create_event(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class EventDetailView(generics.RetrieveAPIView):
+    queryset = Event.objects.all()
+    serializer_class = EventSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        eventId = self.kwargs.get("eventId")
+        event = Event.objects.get(eventId=eventId)
+        if event.event_owner != self.request.user:
+            raise PermissionDenied("Event not found")
+        return Event.objects.get(eventId=eventId)
+
+
 @api_view(["GET"])
 def get_all_events(request):
     user_events = Event.objects.filter(event_owner=request.user)
@@ -220,7 +263,7 @@ def delete_event(request, event_id):
 
         if event.event_owner != request.user:
             return Response(
-                {"error": "You don't have permission to delete this event"},
+                {"error": "Event not found"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
