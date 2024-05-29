@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.validators import RegexValidator, MinLengthValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
-
+ 
 from rest_framework import serializers
 
 import os
@@ -31,7 +31,9 @@ class AuthSerializer(serializers.Serializer):
     password = serializers.CharField(
         style={"input_type": "password"}, trim_whitespace=False
     )
-
+    email = serializers.EmailField(required=False)
+    is_verified = serializers.BooleanField(read_only=True)
+    
     def validate(self, attrs):
         username = attrs.get("username")
         password = attrs.get("password")
@@ -43,9 +45,13 @@ class AuthSerializer(serializers.Serializer):
         if not user:
             msg = "Unable to authenticate with provided credentials"
             raise serializers.ValidationError(msg, code="authentication")
+        
+        if not user.is_verified:
+            msg = "User account is not verified"
+            raise serializers.ValidationError(msg, code="not_verified")
 
         attrs["user"] = user
-        return
+        return attrs
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -120,7 +126,7 @@ class PhotoSerializer(serializers.ModelSerializer):
         read_only_fields = ["photoId", "createdAt", "updatedAt"]
 
     def validate_path(self, value):
-        valid_extensions = [".png", ".jpg", ".jpeg", ".svg"]
+        valid_extensions = [".png", ".jpg", ".jpeg"]
         ext = os.path.splitext(value.name)[1].lower()
         if ext not in valid_extensions:
             raise ValidationError(
