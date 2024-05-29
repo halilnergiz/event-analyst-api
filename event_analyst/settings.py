@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'knox',
     'django_rest_passwordreset',
+    'corsheaders',
     'event_analyst_api.apps.EventAnalystApiConfig',
 ]
 
@@ -58,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware'
 ]
 
 ROOT_URLCONF = 'event_analyst.urls'
@@ -148,7 +150,7 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-
+# Knox
 REST_KNOX = {
     'SECURE_HASH_ALGORITHM': os.getenv('SECURE_HASH_ALGORITHM'),
     'AUTH_TOKEN_CHARACTER_LENGTH': int(os.getenv("AUTH_TOKEN_CHARACTER_LENGTH")),
@@ -158,3 +160,6 @@ REST_KNOX = {
     'AUTO_REFRESH': False,
     'EXPIRY_DATETIME_FORMAT': api_settings.DATETIME_FORMAT,
 }
+
+# Cors
+CORS_ALLOW_ALL_ORIGINS = True
