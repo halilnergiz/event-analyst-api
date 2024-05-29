@@ -41,11 +41,11 @@ class Event(models.Model):
     eventId = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    start_date = models.DateTimeField(blank=True, null=True)
-    end_date = models.DateTimeField(blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True)
-    address = models.CharField(max_length=255, blank=True)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
     event_owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
@@ -63,3 +63,18 @@ class Photo(models.Model):
 
     def __str__(self):
         return f"Photo for {self.event}/{self.event_id} -> Photo ID: {self.photoId}"
+
+
+# Modelde JSONField kullanımı
+class EventStatistic(models.Model):
+    eventStatisticId = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    event = models.OneToOneField(Event, on_delete=models.CASCADE)
+
+    genderAnalysis = models.JSONField(default=dict)
+    raceAnalysis = models.JSONField(default=dict)
+    ageAnalysis = models.JSONField(default=dict)
+
+    def __str__(self):
+        return f"Statistics for event {self.event.title}"

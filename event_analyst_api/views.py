@@ -32,8 +32,9 @@ from .serializers import (
     EventSerializer,
     PhotoSerializer,
     AuthSerializer,
+    EventStatisticSerializer,
 )
-from .models import CustomUser, Event, Photo
+from .models import CustomUser, Event, Photo, EventStatistic
 from .utils import Util
 
 
@@ -223,7 +224,6 @@ class ResendActivationEmailView(generics.GenericAPIView):
 def create_event(request):
     if request.method == "POST":
         serializer = EventSerializer(data=request.data, context={"request": request})
-        print(serializer)
         if serializer.is_valid():
             event = serializer.save()
             response_serializer = EventSerializer(event)
@@ -298,6 +298,57 @@ def partial_update_event(request, event_id):
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Event Statistic Creation
+@api_view(["POST"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def create_event_statistic(request, event_id):
+    try:
+        event = Event.objects.get(eventId=event_id)
+    except Event.DoesNotExist:
+        return Response({"error": "Event not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    data = request.data.copy()
+    data["event"] = event.id
+
+    serializer = EventStatisticSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Event Statistic Update
+@api_view(["PUT"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def update_event_statistic(request, event_id):
+    try:
+        event = Event.objects.get(eventId=event_id)
+    except Event.DoesNotExist:
+        return Response({"error": "Event not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        event_statistics = EventStatistic.objects.get(event=event)
+    except EventStatistic.DoesNotExist:
+        return Response(
+            {"error": "EventStatistic not found"}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    data = request.data.copy()
+    data["event"] = event.id
+
+    serializer = EventStatisticSerializer(instance=event_statistics, data=data)
+    if serializer.is_valid():
+        event_statistics.delete()
+
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

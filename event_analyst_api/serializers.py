@@ -3,12 +3,12 @@ from django.contrib.auth.hashers import check_password
 from django.core.validators import RegexValidator, MinLengthValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
- 
+
 from rest_framework import serializers
 
 import os
 
-from .models import CustomUser, Event, Photo
+from .models import CustomUser, Event, Photo, EventStatistic
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -33,7 +33,7 @@ class AuthSerializer(serializers.Serializer):
     )
     email = serializers.EmailField(required=False)
     is_verified = serializers.BooleanField(read_only=True)
-    
+
     def validate(self, attrs):
         username = attrs.get("username")
         password = attrs.get("password")
@@ -45,7 +45,7 @@ class AuthSerializer(serializers.Serializer):
         if not user:
             msg = "Unable to authenticate with provided credentials"
             raise serializers.ValidationError(msg, code="authentication")
-        
+
         if not user.is_verified:
             msg = "User account is not verified"
             raise serializers.ValidationError(msg, code="not_verified")
@@ -133,3 +133,23 @@ class PhotoSerializer(serializers.ModelSerializer):
                 f"Unsupported file extension: {ext}. Supported extensions are: {', '.join(valid_extensions)}"
             )
         return value
+
+
+class EventStatisticSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventStatistic
+        fields = (
+            "eventStatisticId",
+            "event",
+            "genderAnalysis",
+            "raceAnalysis",
+            "ageAnalysis",
+        )
+
+    def create(self, validated_data):
+        event = validated_data.get("event")
+        if EventStatistic.objects.filter(event=event).exists():
+            raise serializers.ValidationError(
+                "Statistics for this event already exist."
+            )
+        return super().create(validated_data)
