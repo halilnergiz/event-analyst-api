@@ -11,6 +11,7 @@ from .views import (
     ResendActivationEmailView,
     create_event,
     delete_event,
+    EventDetailView,
     get_all_events,
     update_event,
     partial_update_event,
@@ -36,6 +37,7 @@ urlpatterns = [
         name="resend_email_verify",
     ),
     path("create_event/", create_event, name="create_event"),
+    path("event_detail/<str:eventId>/", EventDetailView.as_view(), name="event_detail"),
     path("get_all_events/", get_all_events, name="get_all_events"),
     path("update_event/<str:event_id>/", update_event, name="update_event"),
     path(
