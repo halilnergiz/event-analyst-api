@@ -15,12 +15,12 @@ class CustomUser(AbstractUser):
         validators=[
             RegexValidator(regex=r"^[a-zA-Z0-9]+$"),
             MinLengthValidator(
-                4, message="Password must be at least 6 characters long"
+                3, message="Username must be at least 3 characters long"
             ),
         ],
     )
-    email = models.EmailField(max_length=40, unique=True)
-    is_verified = models.BooleanField(default=False)
+    email = models.EmailField(max_length=50, unique=True)
+    is_verified = models.BooleanField(default=False, blank=True)
     password = models.CharField(
         max_length=30,
         validators=[
@@ -41,8 +41,8 @@ class Event(models.Model):
     eventId = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    start_date = models.DateTimeField(blank=True)
-    end_date = models.DateTimeField(blank=True)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True)
     address = models.CharField(max_length=255, blank=True)
@@ -51,7 +51,7 @@ class Event(models.Model):
     event_owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.title  # TODO
+        return self.title
 
 
 class Photo(models.Model):
